@@ -839,9 +839,10 @@ function addLayer() {
   const id  = `wms_${++idCounter}`;
   const displayName = name || `WMS Layer ${idCounter}`;
 
-  wmsList[id] = { leafletLayer: lyr, visible: true, name: displayName, url, layers, opacity, sym };
+  wmsList[id] = { leafletLayer: lyr, visible: true, name: displayName, url, layers, opacity, sym, version, format, transparent, styles, extraRaw };
   renderItem(id, displayName, url, layers, opacity, sym);
   updateEmpty();
+  saveToStorage();
   toast(`Added: ${displayName}`);
 
   // clear form
@@ -849,10 +850,10 @@ function addLayer() {
 }
 
 // ─── RENDER LAYER ITEM ────────────────────────────────────────
-function renderItem(id, name, url, layers, opacity, sym) {
+function renderItem(id, name, url, layers, opacity, sym, visible = true) {
   document.getElementById('emptyMsg')?.remove();
   const div = document.createElement('div');
-  div.className = 'litem on';
+  div.className = 'litem' + (visible ? ' on' : '');
   div.id = 'li_' + id;
 
   const hasSym = sym && sym.geomType;
@@ -863,7 +864,7 @@ function renderItem(id, name, url, layers, opacity, sym) {
   div.innerHTML = `
     <div class="litem-top">
       <label class="tog" title="Toggle visibility">
-        <input type="checkbox" checked onchange="toggleVis('${id}',this.checked)" />
+        <input type="checkbox" ${visible ? 'checked' : ''} onchange="toggleVis('${id}',this.checked)" />
         <div class="tog-sl"></div>
       </label>
       <div class="litem-name">${esc(name)}</div>
@@ -893,6 +894,7 @@ function toggleVis(id, on) {
   const el = document.getElementById('li_' + id);
   if (on) { e.leafletLayer.addTo(map); el.classList.add('on'); }
   else    { map.removeLayer(e.leafletLayer); el.classList.remove('on'); }
+  saveToStorage();
 }
 
 function setOpacity(id, val, label) {
@@ -900,12 +902,14 @@ function setOpacity(id, val, label) {
   e.opacity = parseFloat(val);
   e.leafletLayer.setOpacity(parseFloat(val));
   label.textContent = Math.round(val * 100) + '%';
+  saveToStorage();
 }
 
 function removeLayer(id) {
   const e = wmsList[id]; if (!e) return;
   map.removeLayer(e.leafletLayer);
   delete wmsList[id];
+  saveToStorage();
   const el = document.getElementById('li_' + id);
   if (el) {
     el.style.transition = 'all .18s';
@@ -1323,8 +1327,38 @@ function filterLayers(q) {
   });
 }
 
+// ─── LOCAL STORAGE ────────────────────────────────────────────
+function saveToStorage() {
+  const data = Object.entries(wmsList).map(([id, e]) => ({
+    id, name: e.name, url: e.url, layers: e.layers, opacity: e.opacity,
+    visible: e.visible, version: e.version, format: e.format,
+    transparent: e.transparent, styles: e.styles, extraRaw: e.extraRaw, sym: e.sym
+  }));
+  localStorage.setItem('wms_layers', JSON.stringify(data));
+}
+
+function loadFromStorage() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('wms_layers') || '[]'); } catch { return; }
+  saved.forEach(cfg => {
+    const num = parseInt(cfg.id.replace('wms_', ''), 10);
+    if (num > idCounter) idCounter = num;
+    let extra = {};
+    if (cfg.extraRaw) { try { extra = JSON.parse(cfg.extraRaw); } catch {} }
+    const opts = { layers: cfg.layers, format: cfg.format, transparent: cfg.transparent, version: cfg.version, opacity: cfg.opacity, ...extra };
+    if (cfg.styles) opts.styles = cfg.styles;
+    if (cfg.sym && cfg.sym.geomType) opts.SLD_BODY = generateSLD(cfg.layers, cfg.sym);
+    const lyr = L.tileLayer.wms(cfg.url, opts);
+    if (cfg.visible) lyr.addTo(map);
+    wmsList[cfg.id] = { leafletLayer: lyr, visible: cfg.visible, name: cfg.name, url: cfg.url, layers: cfg.layers, opacity: cfg.opacity, sym: cfg.sym, version: cfg.version, format: cfg.format, transparent: cfg.transparent, styles: cfg.styles, extraRaw: cfg.extraRaw };
+    renderItem(cfg.id, cfg.name, cfg.url, cfg.layers, cfg.opacity, cfg.sym, cfg.visible);
+  });
+  updateEmpty();
+}
+
 // ─── INIT ─────────────────────────────────────────────────────
 renderPresets();
+loadFromStorage();
 </script>
 </body>
 </html>
