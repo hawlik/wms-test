@@ -850,10 +850,10 @@ function addLayer() {
 }
 
 // ─── RENDER LAYER ITEM ────────────────────────────────────────
-function renderItem(id, name, url, layers, opacity, sym) {
+function renderItem(id, name, url, layers, opacity, sym, visible = true) {
   document.getElementById('emptyMsg')?.remove();
   const div = document.createElement('div');
-  div.className = 'litem on';
+  div.className = 'litem' + (visible ? ' on' : '');
   div.id = 'li_' + id;
 
   const hasSym = sym && sym.geomType;
@@ -864,7 +864,7 @@ function renderItem(id, name, url, layers, opacity, sym) {
   div.innerHTML = `
     <div class="litem-top">
       <label class="tog" title="Toggle visibility">
-        <input type="checkbox" checked onchange="toggleVis('${id}',this.checked)" />
+        <input type="checkbox" ${visible ? 'checked' : ''} onchange="toggleVis('${id}',this.checked)" />
         <div class="tog-sl"></div>
       </label>
       <div class="litem-name">${esc(name)}</div>
@@ -1351,7 +1351,7 @@ function loadFromStorage() {
     const lyr = L.tileLayer.wms(cfg.url, opts);
     if (cfg.visible) lyr.addTo(map);
     wmsList[cfg.id] = { leafletLayer: lyr, visible: cfg.visible, name: cfg.name, url: cfg.url, layers: cfg.layers, opacity: cfg.opacity, sym: cfg.sym, version: cfg.version, format: cfg.format, transparent: cfg.transparent, styles: cfg.styles, extraRaw: cfg.extraRaw };
-    renderItem(cfg.id, cfg.name, cfg.url, cfg.layers, cfg.opacity, cfg.sym);
+    renderItem(cfg.id, cfg.name, cfg.url, cfg.layers, cfg.opacity, cfg.sym, cfg.visible);
   });
   updateEmpty();
 }
