@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WMS Map Tester</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg0:        #080b10;
+      --bg1:        #0e1420;
+      --bg2:        #141c2e;
+      --bg3:        #1c2540;
+      --amber:      #f0a030;
+      --amber-dim:  rgba(240,160,48,.12);
+      --amber-glow: rgba(240,160,48,.30);
+      --blue:       #3b82f6;
+      --blue-dim:   rgba(59,130,246,.12);
+      --red:        #ef4444;
+      --red-dim:    rgba(239,68,68,.12);
+      --green:      #22c55e;
+      --txt0:       #dde3ee;
+      --txt1:       #7c8ea8;
+      --txt2:       #3a4a60;
+      --border:     #1e2d44;
+      --sidebar-w:  340px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg0);
+      color: var(--txt0);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ─── SIDEBAR ─────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      height: 100vh;
+      background: var(--bg0);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      z-index: 1000;
+    }
+
+    /* header */
+    .s-head {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 100%);
+      flex-shrink: 0;
+    }
+    .s-head h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      letter-spacing: 0.12em;
+      color: var(--amber);
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .s-head .sub {
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--txt1);
+    }
+    .s-head .live {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 9px;
+      color: var(--txt1);
+      letter-spacing: 0.06em;
+    }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: blink 2.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* scrollable body */
+    .s-body {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .s-body::-webkit-scrollbar { width: 3px; }
+    .s-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* section */
+    .sec {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sec-title {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--txt1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .sec-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    /* form */
+    label.fl {
+      display: block;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--txt1);
+      margin-bottom: 4px;
+    }
+    .fg { margin-bottom: 9px; }
+
+    input[type=text], select {
+      width: 100%;
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 7px 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--txt0);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input[type=text]:focus, select:focus {
+      border-color: var(--amber-glow);
+      box-shadow: 0 0 0 2px var(--amber-dim);
+    }
+    input::placeholder { color: var(--txt2); }
+
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237c8ea8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 9px center;
+      padding-right: 28px;
+      cursor: pointer;
+    }
+
+    /* two-column row */
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    /* range slider */
+    .sl-wrap { display: flex; align-items: center; gap: 8px; }
+    .sl-val { font-size: 11px; color: var(--amber); min-width: 36px; text-align: right; }
+    input[type=range] {
+      flex: 1; -webkit-appearance: none;
+      height: 2px; background: var(--border); border-radius: 2px; outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 13px; height: 13px;
+      border-radius: 50%; background: var(--amber); cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      box-shadow: 0 0 8px var(--amber-glow);
+    }
+
+    /* buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; border: none; border-radius: 4px;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+      font-weight: 600; letter-spacing: 0.04em; cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-primary {
+      width: 100%; padding: 9px 14px;
+      background: var(--amber); color: #000;
+      margin-top: 4px;
+    }
+    .btn-primary:hover {
+      background: #f8b84a;
+      box-shadow: 0 4px 14px var(--amber-glow);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-ghost {
+      width: 100%; padding: 6px 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--txt1);
+      font-size: 10px;
+      margin-top: 6px;
+      justify-content: center;
+      letter-spacing: 0.06em;
+    }
+    .btn-ghost:hover {
+      border-color: var(--amber-glow);
+      color: var(--amber);
+      background: var(--amber-dim);
+    }
+
+    /* advanced toggle */
+    .adv-toggle {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; color: var(--txt1); letter-spacing: 0.08em;
+      text-transform: uppercase; cursor: pointer; user-select: none;
+      padding: 6px 0;
+    }
+    .adv-toggle:hover { color: var(--txt0); }
+    .adv-toggle .chev { transition: transform .2s; }
+    .adv-toggle.open .chev { transform: rotate(90deg); }
+    .adv-panel { display: none; padding-top: 6px; }
+    .adv-panel.open { display: block; }
+
+    /* base layer radios */
+    .bl-list { display: flex; flex-direction: column; gap: 5px; }
+    .bl-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 4px;
+      border: 1px solid var(--border); cursor: pointer;
+      font-size: 11px; transition: all .15s;
+    }
+    .bl-item:hover { border-color: var(--amber-glow); background: var(--amber-dim); }
+    .bl-item.active { border-color: var(--amber); background: var(--amber-dim); color: var(--amber); }
+    .bl-radio {
+      width: 11px; height: 11px; border-radius: 50%;
+      border: 2px solid var(--border); flex-shrink: 0; transition: all .15s;
+    }
+    .bl-item.active .bl-radio {
+      border-color: var(--amber); background: var(--amber);
+      box-shadow: 0 0 6px var(--amber-glow);
+    }
+
+    /* layer list items */
+    .llist { display: flex; flex-direction: column; gap: 7px; }
+    .litem {
+      background: var(--bg1);
+      border: 1px solid var(--border);
+      border-radius: 6px; padding: 10px 11px;
+      transition: border-color .15s;
+      animation: slidein .2s ease-out;
+    }
+    @keyframes slidein { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:none} }
+    .litem.on { border-color: color-mix(in srgb, var(--amber) 35%, transparent); }
+    .litem-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .litem-name { flex:1; font-size: 12px; font-weight: 600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .litem-layer { font-size: 9px; color: var(--txt1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom: 3px; }
+    .litem-url   { font-size: 9px; color: var(--txt2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .litem-ops   { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+
+    /* toggle switch */
+    .tog { position:relative; width:30px; height:16px; flex-shrink:0; }
+    .tog input { opacity:0; width:0; height:0; position:absolute; }
+    .tog-sl {
+      position:absolute; inset:0; background:var(--border);
+      border-radius:8px; cursor:pointer; transition: background .2s;
+    }
+    .tog-sl::after {
+      content:''; position:absolute; width:10px; height:10px;
+      border-radius:50%; background:var(--txt1); top:3px; left:3px;
+      transition: transform .2s, background .2s;
+    }
+    .tog input:checked + .tog-sl { background: var(--amber-dim); border:1px solid color-mix(in srgb,var(--amber) 40%, transparent); }
+    .tog input:checked + .tog-sl::after { transform:translateX(14px); background:var(--amber); }
+
+    /* icon button (delete) */
+    .ibtn {
+      display:flex; align-items:center; justify-content:center;
+      width:24px; height:24px; border-radius:3px;
+      border:1px solid var(--border); background:transparent;
+      color:var(--txt1); cursor:pointer; flex-shrink:0; transition:all .15s;
+    }
+    .ibtn:hover { background:var(--red-dim); border-color:var(--red); color:var(--red); }
+
+    /* presets */
+    .preset-list { display:flex; flex-direction:column; gap:5px; }
+    .preset-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 4px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--txt1); font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; cursor: pointer; transition: all .15s;
+      text-align: left; width: 100%;
+    }
+    .preset-btn:hover { border-color:var(--amber-glow); color:var(--amber); background:var(--amber-dim); }
+    .preset-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+    /* empty state */
+    .empty { text-align:center; padding:18px 0; color:var(--txt2); font-size:10px; line-height:1.9; letter-spacing:.06em; }
+
+    /* coords bar */
+    .coords {
+      padding: 7px 18px;
+      background: var(--bg1);
+      border-top: 1px solid var(--border);
+      font-size: 9px;
+      color: var(--txt1);
+      display: flex; gap: 14px;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .coords span { color: var(--amber); }
+
+    /* ─── MAP ─────────────────────────────────────────── */
+    #map { flex:1; height:100vh; }
+
+    /* leaflet overrides */
+    .leaflet-control-zoom { border:1px solid var(--border) !important; border-radius:4px !important; overflow:hidden; }
+    .leaflet-control-zoom a { background:var(--bg1) !important; color:var(--txt1) !important; border-bottom:1px solid var(--border) !important; transition:all .15s !important; line-height:26px !important; }
+    .leaflet-control-zoom a:hover { background:var(--bg2) !important; color:var(--amber) !important; }
+    .leaflet-bar { box-shadow:none !important; }
+    .leaflet-control-attribution { background:rgba(8,11,16,.7) !important; color:var(--txt2) !important; font-size:9px !important; }
+    .leaflet-control-attribution a { color:var(--txt1) !important; }
+
+    /* ─── SYMBOLOGY ──────────────────────────────────── */
+    .sym-toggle {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; color: var(--txt1); letter-spacing: .08em;
+      text-transform: uppercase; cursor: pointer; user-select: none;
+      padding: 6px 0;
+    }
+    .sym-toggle:hover { color: var(--txt0); }
+    .sym-toggle .chev { transition: transform .2s; }
+    .sym-toggle.open  .chev { transform: rotate(90deg); }
+    .sym-panel { display: none; padding-top: 6px; }
+    .sym-panel.open  { display: block; }
+
+    .color-row { display: flex; align-items: center; gap: 7px; }
+    .colorpick {
+      width: 28px; height: 26px; border-radius: 3px;
+      border: 1px solid var(--border); padding: 1px 2px;
+      background: var(--bg1); cursor: pointer; flex-shrink: 0;
+    }
+    .colorpick::-webkit-color-swatch-wrapper { padding: 0; }
+    .colorpick::-webkit-color-swatch { border: none; border-radius: 2px; }
+    .color-hex { font-size: 11px; color: var(--txt1); letter-spacing: .04em; }
+    .sym-note {
+      font-size: 9px; color: var(--txt2); line-height: 1.7;
+      padding: 5px 8px; border-left: 2px solid var(--border); margin-top: 4px;
+    }
+    /* inline style panel on active layer cards */
+    .sp {
+      border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px;
+    }
+    .sp-title { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--txt1); margin-bottom: 7px; }
+    .sp-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 6px; }
+    .sp label { display:block; font-size:9px; color:var(--txt2); letter-spacing:.08em; text-transform:uppercase; margin-bottom:3px; }
+    .sp select, .sp input[type=number] {
+      width:100%; background:var(--bg0); border:1px solid var(--border); border-radius:3px;
+      padding:5px 7px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--txt0); outline:none;
+    }
+    .sp-apply {
+      width:100%; padding:6px; border-radius:3px; border:none;
+      background:var(--amber); color:#000; font-family:'IBM Plex Mono',monospace;
+      font-size:10px; font-weight:600; cursor:pointer; transition:all .15s; margin-top:4px;
+    }
+    .sp-apply:hover { background:#f8b84a; }
+    .ibtn-style.active { border-color:var(--amber-glow); color:var(--amber); background:var(--amber-dim); }
+
+    /* ─── LAYER BROWSER ──────────────────────────────── */
+    #lbPanel {
+      position: absolute;
+      inset: 0;
+      background: var(--bg0);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(-100%);
+      transition: transform .26s cubic-bezier(.4,0,.2,1);
+      z-index: 20;
+    }
+    #lbPanel.open { transform: translateX(0); }
+
+    .lb-head {
+      padding: 12px 18px 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .lb-head-top {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .lb-head-label {
+      font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--txt1);
+    }
+    .lb-service-title {
+      font-size: 12px; font-weight: 600; color: var(--txt0);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      margin-bottom: 2px;
+    }
+    .lb-service-meta { font-size: 9px; color: var(--txt1); letter-spacing: .05em; }
+
+    .lb-search-wrap {
+      padding: 8px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #lbSearch {
+      width: 100%; background: var(--bg1); border: 1px solid var(--border);
+      border-radius: 4px; padding: 6px 10px;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--txt0);
+      outline: none; transition: border-color .15s;
+    }
+    #lbSearch:focus { border-color: var(--amber-glow); }
+    #lbSearch::placeholder { color: var(--txt2); }
+
+    .lb-tree {
+      flex: 1; overflow-y: auto; padding: 4px 0;
+    }
+    .lb-tree::-webkit-scrollbar { width: 3px; }
+    .lb-tree::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* loading / error */
+    .lb-loading {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; gap: 10px;
+      color: var(--txt1); font-size: 10px; letter-spacing: .06em;
+    }
+    .lb-spinner {
+      width: 22px; height: 22px;
+      border: 2px solid var(--border); border-top-color: var(--amber);
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .lb-err { color: var(--red); text-align: center; padding: 0 24px; line-height: 1.8; }
+    .lb-err-detail { color: var(--txt2); font-size: 9px; margin-top: 4px; }
+
+    /* group */
+    .lb-group {}
+    .lb-group-hd {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 18px; cursor: pointer; user-select: none;
+      color: var(--txt1); font-size: 11px; transition: color .15s, background .15s;
+    }
+    .lb-group-hd:hover { color: var(--txt0); background: var(--bg1); }
+    .lb-group-hd .chev { flex-shrink: 0; transition: transform .18s; }
+    .lb-group-hd.open .chev { transform: rotate(90deg); }
+    .lb-group-gtitle { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lb-group-gname  { font-size: 9px; color: var(--txt2); flex-shrink: 0; }
+    .lb-group-sel {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 3px; flex-shrink: 0;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--txt2); cursor: pointer; transition: all .15s;
+    }
+    .lb-group-sel:hover { border-color: var(--amber-glow); color: var(--amber); background: var(--amber-dim); }
+    .lb-children { display: none; }
+    .lb-children.open { display: block; }
+
+    /* leaf */
+    .lb-leaf {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 18px; cursor: pointer; font-size: 11px;
+      color: var(--txt0); transition: background .12s;
+      border-left: 2px solid transparent;
+    }
+    .lb-leaf:hover { background: var(--amber-dim); border-left-color: var(--amber); }
+    .lb-leaf-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lb-leaf-name  { font-size: 9px; color: var(--txt2); flex-shrink: 0; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ─── TOAST ───────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 18px; right: 18px;
+      background: var(--bg2); border: 1px solid var(--amber-glow);
+      border-radius: 5px; padding: 9px 15px;
+      font-size: 11px; color: var(--txt0);
+      z-index: 9999; opacity: 0; transform: translateY(6px);
+      transition: all .22s; pointer-events: none; letter-spacing:.03em;
+    }
+    #toast.show { opacity:1; transform:translateY(0); }
+    #toast.err  { border-color:rgba(239,68,68,.4); color:var(--red); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<div id="sidebar">
+  <div class="s-head">
+    <h1>WMS Tester</h1>
+    <div class="sub">Web Map Service Explorer</div>
+    <div class="live">
+      <div class="dot"></div>
+      <span id="statusText">Map ready — OSM base layer active</span>
+    </div>
+  </div>
+
+  <div class="s-body">
+
+    <!-- Base map -->
+    <div class="sec">
+      <div class="sec-title">Base Map</div>
+      <div class="bl-list">
+        <div class="bl-item active" onclick="switchBase('osm',this)">
+          <div class="bl-radio"></div>OpenStreetMap
+        </div>
+        <div class="bl-item" onclick="switchBase('topo',this)">
+          <div class="bl-radio"></div>OpenTopoMap
+        </div>
+        <div class="bl-item" onclick="switchBase('sat',this)">
+          <div class="bl-radio"></div>ESRI Satellite
+        </div>
+        <div class="bl-item" onclick="switchBase('dark',this)">
+          <div class="bl-radio"></div>CartoDB Dark
+        </div>
+      </div>
+    </div>
+
+    <!-- Add WMS layer -->
+    <div class="sec">
+      <div class="sec-title">Add WMS Layer</div>
+
+      <div class="fg">
+        <label class="fl">Name</label>
+        <input type="text" id="iName" placeholder="My WMS Layer" />
+      </div>
+      <div class="fg">
+        <label class="fl">WMS URL</label>
+        <input type="text" id="iUrl" placeholder="https://example.com/wms?" />
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn btn-ghost" style="flex:1;margin-top:0" onclick="openBrowser()">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Browse Layers
+          </button>
+          <button class="btn btn-ghost" style="width:auto;margin-top:0;padding:6px 9px" onclick="openCaps()" title="Open GetCapabilities XML">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Layers</label>
+        <input type="text" id="iLayers" placeholder="layer_name (comma-separated)" />
+      </div>
+      <div class="fg">
+        <label class="fl">Opacity</label>
+        <div class="sl-wrap">
+          <input type="range" id="iOpacity" min="0" max="1" step="0.05" value="0.8"
+            oninput="document.getElementById('iOpVal').textContent=Math.round(this.value*100)+'%'" />
+          <div class="sl-val" id="iOpVal">80%</div>
+        </div>
+      </div>
+
+      <!-- Symbology -->
+      <div class="sym-toggle" id="symTog" onclick="toggleSym()">
+        <svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+        Symbology / SLD Style
+      </div>
+      <div class="sym-panel" id="symPanel">
+        <div class="fg">
+          <label class="fl">Geometry type</label>
+          <select id="sGeom" onchange="onGeomChange()">
+            <option value="">None (server default)</option>
+            <option value="polygon">Polygon</option>
+            <option value="line">Line / Polyline</option>
+            <option value="point">Point</option>
+          </select>
+        </div>
+        <div id="sFillRow" style="display:none">
+          <div class="row2">
+            <div class="fg">
+              <label class="fl">Fill color</label>
+              <div class="color-row">
+                <input type="color" id="sFillColor" class="colorpick" value="#3388ff"
+                  oninput="document.getElementById('sFillHex').textContent=this.value" />
+                <span class="color-hex" id="sFillHex">#3388ff</span>
+              </div>
+            </div>
+            <div class="fg">
+              <label class="fl">Fill opacity</label>
+              <div class="sl-wrap">
+                <input type="range" id="sFillOp" min="0" max="1" step="0.05" value="0.4"
+                  oninput="document.getElementById('sFillOpV').textContent=Math.round(this.value*100)+'%'" />
+                <div class="sl-val" id="sFillOpV">40%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="sStrokeRow" style="display:none">
+          <div class="row2">
+            <div class="fg">
+              <label class="fl">Stroke color</label>
+              <div class="color-row">
+                <input type="color" id="sStrokeColor" class="colorpick" value="#1a5fa8"
+                  oninput="document.getElementById('sStrokeHex').textContent=this.value" />
+                <span class="color-hex" id="sStrokeHex">#1a5fa8</span>
+              </div>
+            </div>
+            <div class="fg">
+              <label class="fl">Stroke width</label>
+              <input type="number" id="sStrokeW" value="1" min="0.1" max="20" step="0.5"
+                style="background:var(--bg1);border:1px solid var(--border);border-radius:4px;padding:7px 10px;font-family:inherit;font-size:11px;color:var(--txt0);outline:none;width:100%" />
+            </div>
+          </div>
+        </div>
+        <div class="sym-note" id="sNote" style="display:none">
+          Generates SLD_BODY for this WMS request. Works with GeoServer, MapServer, QGIS Server and ArcGIS Server.
+        </div>
+      </div>
+
+      <!-- Advanced -->
+      <div class="adv-toggle" id="advTog" onclick="toggleAdv()">
+        <svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+        Advanced options
+      </div>
+      <div class="adv-panel" id="advPanel">
+        <div class="row2">
+          <div class="fg">
+            <label class="fl">Version</label>
+            <select id="iVer">
+              <option value="1.3.0">1.3.0</option>
+              <option value="1.1.1">1.1.1</option>
+              <option value="1.1.0">1.1.0</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Format</label>
+            <select id="iFmt">
+              <option value="image/png">PNG</option>
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/gif">GIF</option>
+            </select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="fg">
+            <label class="fl">Transparent</label>
+            <select id="iTrans">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Styles</label>
+            <input type="text" id="iStyles" placeholder="default" />
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">Extra params (JSON)</label>
+          <input type="text" id="iExtra" placeholder='{"time":"2024-01-01"}' />
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="addLayer()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Add Layer
+      </button>
+    </div>
+
+    <!-- Active WMS layers -->
+    <div class="sec">
+      <div class="sec-title">Active WMS Layers</div>
+      <div class="llist" id="layerList">
+        <div class="empty" id="emptyMsg">
+          No WMS layers added yet.<br/>
+          Use the form above or a preset below.
+        </div>
+      </div>
+    </div>
+
+    <!-- Presets -->
+    <div class="sec">
+      <div class="sec-title">Quick Presets</div>
+      <div class="preset-list" id="presetList"></div>
+    </div>
+
+  </div><!-- /s-body -->
+
+  <!-- ═══════════════ LAYER BROWSER PANEL ═══════════════ -->
+  <div id="lbPanel">
+    <div class="lb-head">
+      <div class="lb-head-top">
+        <button class="ibtn" onclick="closeBrowser()" title="Back to form">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="lb-head-label">Service Browser</div>
+      </div>
+      <div class="lb-service-title" id="lbTitle">Connecting…</div>
+      <div class="lb-service-meta" id="lbMeta"></div>
+    </div>
+    <div class="lb-search-wrap">
+      <input id="lbSearch" placeholder="Filter layers…" oninput="filterLayers(this.value)" />
+    </div>
+    <div class="lb-tree" id="lbTree">
+      <div class="lb-loading"><div class="lb-spinner"></div><div>Loading capabilities…</div></div>
+    </div>
+  </div>
+
+  <!-- Coords bar -->
+  <div class="coords">
+    <div>LAT <span id="cLat">—</span></div>
+    <div>LON <span id="cLon">—</span></div>
+    <div>ZOOM <span id="cZoom">3</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAP ═══════════════ -->
+<div id="map"></div>
+
+<!-- toast -->
+<div id="toast"></div>
+
+<script>
+// ─── MAP INIT ─────────────────────────────────────────────────
+const map = L.map('map', { center: [30, 0], zoom: 3 });
+map.zoomControl.setPosition('bottomright');
+
+const bases = {
+  osm:  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',  { attribution:'© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom:19 }),
+  topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',   { attribution:'© OpenTopoMap', maxZoom:17 }),
+  sat:  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution:'© Esri / Maxar', maxZoom:19 }),
+  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution:'© CartoDB', maxZoom:19 })
+};
+let currentBase = 'osm';
+bases.osm.addTo(map);
+
+map.on('mousemove', e => {
+  document.getElementById('cLat').textContent = e.latlng.lat.toFixed(5);
+  document.getElementById('cLon').textContent = e.latlng.lng.toFixed(5);
+});
+map.on('zoomend', () => { document.getElementById('cZoom').textContent = map.getZoom(); });
+
+// ─── STATE ────────────────────────────────────────────────────
+const wmsList = {};   // id → { leafletLayer, visible, name, url, layers, opacity }
+let idCounter = 0;
+
+// ─── PRESETS ─────────────────────────────────────────────────
+const PRESETS = [
+  {
+    name: 'NASA MODIS Terra (true color)',
+    color: '#f59e0b',
+    url: 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi',
+    layers: 'MODIS_Terra_CorrectedReflectance_TrueColor',
+    version: '1.3.0', format: 'image/jpeg', transparent: false, opacity: 0.85
+  },
+  {
+    name: 'NASA VIIRS Night Lights',
+    color: '#a78bfa',
+    url: 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi',
+    layers: 'VIIRS_SNPP_DayNightBand_ENCC',
+    version: '1.3.0', format: 'image/png', transparent: true, opacity: 0.90
+  },
+  {
+    name: 'NOAA Weather Radar (base refl.)',
+    color: '#34d399',
+    url: 'https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows',
+    layers: 'conus_bref_qcd',
+    version: '1.3.0', format: 'image/png', transparent: true, opacity: 0.75
+  },
+  {
+    name: 'EOX Sentinel-2 Cloudless',
+    color: '#60a5fa',
+    url: 'https://tiles.maps.eox.at/wms',
+    layers: 's2cloudless-2020',
+    version: '1.1.1', format: 'image/jpeg', transparent: false, opacity: 0.80
+  },
+  {
+    name: 'USGS Topo (National Map)',
+    color: '#fb923c',
+    url: 'https://basemap.nationalmap.gov/arcgis/services/USGSTopo/MapServer/WMSServer',
+    layers: '0',
+    version: '1.3.0', format: 'image/png', transparent: true, opacity: 0.85
+  },
+];
+
+function renderPresets() {
+  const el = document.getElementById('presetList');
+  PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    btn.innerHTML = `<div class="preset-dot" style="background:${p.color}"></div>${p.name}`;
+    btn.onclick = () => loadPreset(p);
+    el.appendChild(btn);
+  });
+}
+
+function loadPreset(p) {
+  document.getElementById('iName').value    = p.name;
+  document.getElementById('iUrl').value     = p.url;
+  document.getElementById('iLayers').value  = p.layers;
+  document.getElementById('iVer').value     = p.version;
+  document.getElementById('iFmt').value     = p.format;
+  document.getElementById('iTrans').value   = String(p.transparent);
+  document.getElementById('iOpacity').value = p.opacity;
+  document.getElementById('iOpVal').textContent = Math.round(p.opacity * 100) + '%';
+  // open advanced so user can see settings
+  const panel = document.getElementById('advPanel');
+  const tog   = document.getElementById('advTog');
+  panel.classList.add('open');
+  tog.classList.add('open');
+  toast(`Preset loaded — click "Add Layer" to apply`);
+}
+
+// ─── ADD LAYER ────────────────────────────────────────────────
+function addLayer() {
+  const name   = document.getElementById('iName').value.trim();
+  const url    = document.getElementById('iUrl').value.trim();
+  const layers = document.getElementById('iLayers').value.trim();
+  const opacity  = parseFloat(document.getElementById('iOpacity').value);
+  const version  = document.getElementById('iVer').value;
+  const format   = document.getElementById('iFmt').value;
+  const transparent = document.getElementById('iTrans').value === 'true';
+  const styles   = document.getElementById('iStyles').value.trim();
+  const extraRaw = document.getElementById('iExtra').value.trim();
+
+  if (!url)    { toast('WMS URL is required', true); return; }
+  if (!layers) { toast('Layer name is required', true); return; }
+
+  let extra = {};
+  if (extraRaw) {
+    try { extra = JSON.parse(extraRaw); }
+    catch { toast('Invalid JSON in extra params', true); return; }
+  }
+
+  const opts = { layers, format, transparent, version, opacity, ...extra };
+  if (styles) opts.styles = styles;
+
+  const sym = readSymForm();
+  if (sym.geomType) opts.SLD_BODY = generateSLD(layers, sym);
+
+  const lyr = L.tileLayer.wms(url, opts).addTo(map);
+  const id  = `wms_${++idCounter}`;
+  const displayName = name || `WMS Layer ${idCounter}`;
+
+  wmsList[id] = { leafletLayer: lyr, visible: true, name: displayName, url, layers, opacity, sym };
+  renderItem(id, displayName, url, layers, opacity, sym);
+  updateEmpty();
+  toast(`Added: ${displayName}`);
+
+  // clear form
+  ['iName','iUrl','iLayers','iStyles','iExtra'].forEach(x => document.getElementById(x).value = '');
+}
+
+// ─── RENDER LAYER ITEM ────────────────────────────────────────
+function renderItem(id, name, url, layers, opacity, sym) {
+  document.getElementById('emptyMsg')?.remove();
+  const div = document.createElement('div');
+  div.className = 'litem on';
+  div.id = 'li_' + id;
+
+  const hasSym = sym && sym.geomType;
+  const symDot = hasSym
+    ? `<div title="SLD style active" style="width:6px;height:6px;border-radius:50%;background:${sym.fillColor || sym.strokeColor};flex-shrink:0;box-shadow:0 0 4px ${sym.fillColor || sym.strokeColor}"></div>`
+    : '';
+
+  div.innerHTML = `
+    <div class="litem-top">
+      <label class="tog" title="Toggle visibility">
+        <input type="checkbox" checked onchange="toggleVis('${id}',this.checked)" />
+        <div class="tog-sl"></div>
+      </label>
+      <div class="litem-name">${esc(name)}</div>
+      ${symDot}
+      <button class="ibtn ibtn-style${hasSym ? ' active' : ''}" id="stybtn_${id}" onclick="toggleStylePanel('${id}')" title="Edit symbology">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </button>
+      <button class="ibtn" onclick="removeLayer('${id}')" title="Remove">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="litem-layer">LAYERS: ${esc(layers)}</div>
+    <div class="litem-url">${esc(url)}</div>
+    <div class="litem-ops">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#7c8ea8" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+      <input type="range" min="0" max="1" step="0.05" value="${opacity}"
+        oninput="setOpacity('${id}',this.value,this.nextElementSibling)" style="flex:1" />
+      <div class="sl-val">${Math.round(opacity*100)}%</div>
+    </div>
+  `;
+  document.getElementById('layerList').appendChild(div);
+}
+
+function toggleVis(id, on) {
+  const e = wmsList[id]; if (!e) return;
+  e.visible = on;
+  const el = document.getElementById('li_' + id);
+  if (on) { e.leafletLayer.addTo(map); el.classList.add('on'); }
+  else    { map.removeLayer(e.leafletLayer); el.classList.remove('on'); }
+}
+
+function setOpacity(id, val, label) {
+  const e = wmsList[id]; if (!e) return;
+  e.opacity = parseFloat(val);
+  e.leafletLayer.setOpacity(parseFloat(val));
+  label.textContent = Math.round(val * 100) + '%';
+}
+
+function removeLayer(id) {
+  const e = wmsList[id]; if (!e) return;
+  map.removeLayer(e.leafletLayer);
+  delete wmsList[id];
+  const el = document.getElementById('li_' + id);
+  if (el) {
+    el.style.transition = 'all .18s';
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-6px)';
+    setTimeout(() => { el.remove(); updateEmpty(); }, 200);
+  }
+}
+
+function updateEmpty() {
+  if (Object.keys(wmsList).length === 0 && !document.getElementById('emptyMsg')) {
+    const d = document.createElement('div');
+    d.className = 'empty'; d.id = 'emptyMsg';
+    d.innerHTML = 'No active WMS layers.';
+    document.getElementById('layerList').appendChild(d);
+  }
+}
+
+// ─── BASE LAYER SWITCH ────────────────────────────────────────
+function switchBase(key, el) {
+  if (key === currentBase) return;
+  map.removeLayer(bases[currentBase]);
+  bases[key].addTo(map);
+  // bring WMS layers back on top
+  Object.values(wmsList).forEach(e => { if (e.visible) e.leafletLayer.bringToFront(); });
+  currentBase = key;
+  document.querySelectorAll('.bl-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── MISC ─────────────────────────────────────────────────────
+function toggleAdv() {
+  document.getElementById('advPanel').classList.toggle('open');
+  document.getElementById('advTog').classList.toggle('open');
+}
+
+function openCaps() {
+  const url = document.getElementById('iUrl').value.trim();
+  if (!url) { toast('Enter a WMS URL first', true); return; }
+  const base = url.split('?')[0];
+  window.open(`${base}?SERVICE=WMS&REQUEST=GetCapabilities`, '_blank');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function toast(msg, isErr = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 3000);
+}
+
+// ─── SYMBOLOGY ────────────────────────────────────────────────
+function toggleSym() {
+  document.getElementById('symPanel').classList.toggle('open');
+  document.getElementById('symTog').classList.toggle('open');
+}
+
+function onGeomChange() {
+  const g = document.getElementById('sGeom').value;
+  const hasFill   = g === 'polygon' || g === 'point';
+  const hasStroke = !!g;
+  document.getElementById('sFillRow').style.display   = hasFill   ? '' : 'none';
+  document.getElementById('sStrokeRow').style.display = hasStroke ? '' : 'none';
+  document.getElementById('sNote').style.display      = hasStroke ? '' : 'none';
+}
+
+function readSymForm() {
+  return {
+    geomType:    document.getElementById('sGeom').value,
+    fillColor:   document.getElementById('sFillColor').value,
+    fillOpacity: parseFloat(document.getElementById('sFillOp').value),
+    strokeColor: document.getElementById('sStrokeColor').value,
+    strokeWidth: parseFloat(document.getElementById('sStrokeW').value),
+  };
+}
+
+function generateSLD(layerNames, sym) {
+  const { geomType, fillColor, fillOpacity, strokeColor, strokeWidth } = sym;
+
+  const fillXml = `<Fill>
+      <CssParameter name="fill">${fillColor}</CssParameter>
+      <CssParameter name="fill-opacity">${fillOpacity}</CssParameter>
+    </Fill>`;
+  const strokeXml = `<Stroke>
+      <CssParameter name="stroke">${strokeColor}</CssParameter>
+      <CssParameter name="stroke-width">${strokeWidth}</CssParameter>
+    </Stroke>`;
+
+  let symbolizer = '';
+  if (geomType === 'polygon') {
+    symbolizer = `<PolygonSymbolizer>${fillXml}${strokeXml}</PolygonSymbolizer>`;
+  } else if (geomType === 'line') {
+    symbolizer = `<LineSymbolizer>${strokeXml}</LineSymbolizer>`;
+  } else if (geomType === 'point') {
+    symbolizer = `<PointSymbolizer><Graphic><Mark><WellKnownName>circle</WellKnownName>${fillXml}${strokeXml}</Mark><Size>8</Size></Graphic></PointSymbolizer>`;
+  }
+
+  const namedLayers = layerNames.split(',').map(ln =>
+    `<NamedLayer><Name>${ln.trim()}</Name><UserStyle><FeatureTypeStyle><Rule>${symbolizer}</Rule></FeatureTypeStyle></UserStyle></NamedLayer>`
+  ).join('');
+
+  return `<?xml version="1.0"?><StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld" xmlns:ogc="http://www.opengis.net/ogc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${namedLayers}</StyledLayerDescriptor>`;
+}
+
+// ── Inline style editor on active layer cards ──
+function toggleStylePanel(id) {
+  const card  = document.getElementById('li_' + id);
+  const btn   = document.getElementById('stybtn_' + id);
+  const existing = card.querySelector('.sp');
+  if (existing) { existing.remove(); btn.classList.remove('active'); return; }
+
+  const entry = wmsList[id];
+  const s = entry.sym || {};
+
+  const panel = document.createElement('div');
+  panel.className = 'sp';
+  panel.innerHTML = `
+    <div class="sp-title">Symbology</div>
+    <div class="sp-row">
+      <div><label>Geometry</label>
+        <select class="sp-geom" onchange="spGeomChange(this)">
+          <option value=""${!s.geomType?'selected':''}>Server default</option>
+          <option value="polygon"${s.geomType==='polygon'?'selected':''}>Polygon</option>
+          <option value="line"${s.geomType==='line'?'selected':''}>Line</option>
+          <option value="point"${s.geomType==='point'?'selected':''}>Point</option>
+        </select>
+      </div>
+      <div><label>Stroke width</label>
+        <input type="number" class="sp-sw" value="${s.strokeWidth||1}" min="0.1" max="20" step="0.5" />
+      </div>
+    </div>
+    <div class="sp-fill-row" style="display:${s.geomType==='polygon'||s.geomType==='point'?'':'none'}">
+      <div class="sp-row">
+        <div><label>Fill color</label>
+          <div class="color-row">
+            <input type="color" class="colorpick sp-fc" value="${s.fillColor||'#3388ff'}"
+              oninput="this.nextElementSibling.textContent=this.value" />
+            <span class="color-hex">${s.fillColor||'#3388ff'}</span>
+          </div>
+        </div>
+        <div><label>Fill opacity</label>
+          <div class="sl-wrap">
+            <input type="range" class="sp-fo" min="0" max="1" step="0.05" value="${s.fillOpacity!=null?s.fillOpacity:0.4}"
+              oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+'%'" />
+            <div class="sl-val">${s.fillOpacity!=null?Math.round(s.fillOpacity*100)+'%':'40%'}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div><label>Stroke color</label>
+      <div class="color-row" style="margin-bottom:6px">
+        <input type="color" class="colorpick sp-sc" value="${s.strokeColor||'#1a5fa8'}"
+          oninput="this.nextElementSibling.textContent=this.value" />
+        <span class="color-hex">${s.strokeColor||'#1a5fa8'}</span>
+      </div>
+    </div>
+    <button class="sp-apply" onclick="applyStyle('${id}')">Apply Style</button>
+  `;
+
+  card.appendChild(panel);
+  btn.classList.add('active');
+}
+
+function spGeomChange(sel) {
+  const panel = sel.closest('.sp');
+  const fillRow = panel.querySelector('.sp-fill-row');
+  const g = sel.value;
+  fillRow.style.display = (g === 'polygon' || g === 'point') ? '' : 'none';
+}
+
+function applyStyle(id) {
+  const entry = wmsList[id];
+  if (!entry) return;
+
+  const card  = document.getElementById('li_' + id);
+  const panel = card.querySelector('.sp');
+  if (!panel) return;
+
+  const geomType    = panel.querySelector('.sp-geom').value;
+  const strokeWidth = parseFloat(panel.querySelector('.sp-sw').value);
+  const fillColor   = panel.querySelector('.sp-fc').value;
+  const fillOpacity = parseFloat(panel.querySelector('.sp-fo').value);
+  const strokeColor = panel.querySelector('.sp-sc').value;
+
+  const sym = { geomType, fillColor, fillOpacity, strokeColor, strokeWidth };
+  entry.sym = sym;
+
+  const newParams = {};
+  if (geomType) {
+    newParams.SLD_BODY = generateSLD(entry.layers, sym);
+  } else {
+    newParams.SLD_BODY = undefined;
+  }
+
+  entry.leafletLayer.setParams(newParams, false);
+
+  // Update the color dot in the card header
+  const dot = card.querySelector('[title="SLD style active"]');
+  if (dot) dot.remove();
+  if (geomType) {
+    const dotEl = document.createElement('div');
+    dotEl.title = 'SLD style active';
+    dotEl.style.cssText = `width:6px;height:6px;border-radius:50%;background:${fillColor || strokeColor};flex-shrink:0;box-shadow:0 0 4px ${fillColor || strokeColor}`;
+    const nameEl = card.querySelector('.litem-name');
+    nameEl.after(dotEl);
+  }
+
+  const btn = document.getElementById('stybtn_' + id);
+  if (geomType) btn.classList.add('active'); else btn.classList.remove('active');
+
+  toast('Style applied');
+}
+
+// ─── LAYER BROWSER ────────────────────────────────────────────
+let _browserUrl = '';
+let _allLeaves  = [];   // flat list of { el, name, title } for filtering
+
+async function openBrowser() {
+  const raw = document.getElementById('iUrl').value.trim();
+  if (!raw) { toast('Enter a WMS URL first', true); return; }
+  _browserUrl = raw.split('?')[0];
+  _allLeaves  = [];
+
+  document.getElementById('lbTitle').textContent = 'Connecting…';
+  document.getElementById('lbMeta').textContent  = _browserUrl;
+  document.getElementById('lbSearch').value = '';
+  document.getElementById('lbTree').innerHTML =
+    '<div class="lb-loading"><div class="lb-spinner"></div><div>Fetching capabilities…</div></div>';
+  document.getElementById('lbPanel').classList.add('open');
+
+  try {
+    const caps = await fetchCapabilities(_browserUrl);
+    const leafCount = countLeaves(caps.rootLayer);
+    document.getElementById('lbTitle').textContent = caps.serviceTitle;
+    document.getElementById('lbMeta').textContent  =
+      `WMS ${caps.version} · ${leafCount} selectable layer${leafCount !== 1 ? 's' : ''}`;
+
+    // Pre-fill version & format from capabilities if user hasn't typed a layer yet
+    if (caps.version) {
+      const vSel = document.getElementById('iVer');
+      if ([...vSel.options].some(o => o.value === caps.version)) vSel.value = caps.version;
+    }
+
+    const tree = document.getElementById('lbTree');
+    tree.innerHTML = '';
+    const nodes = caps.rootLayer.name ? [caps.rootLayer] : caps.rootLayer.children;
+    nodes.forEach(n => tree.appendChild(buildNode(n, 0)));
+  } catch (err) {
+    document.getElementById('lbTitle').textContent = 'Failed to load';
+    document.getElementById('lbTree').innerHTML = `
+      <div class="lb-loading">
+        <div class="lb-err">Could not fetch GetCapabilities<div class="lb-err-detail">${esc(err.message)}</div></div>
+      </div>`;
+  }
+}
+
+function closeBrowser() {
+  document.getElementById('lbPanel').classList.remove('open');
+}
+
+async function fetchCapabilities(baseUrl) {
+  const capsUrl = `${baseUrl}?SERVICE=WMS&REQUEST=GetCapabilities`;
+  let text;
+
+  // Try direct first (works when server has CORS headers)
+  try {
+    const res = await fetch(capsUrl, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    text = await res.text();
+  } catch (_) {
+    // Fallback: CORS proxy
+    const proxy = 'https://corsproxy.io/?' + encodeURIComponent(capsUrl);
+    const res   = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
+    if (!res.ok) throw new Error('Proxy error: HTTP ' + res.status);
+    text = await res.text();
+  }
+
+  return parseCapabilities(text);
+}
+
+function parseCapabilities(xmlText) {
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if (doc.querySelector('parsererror')) throw new Error('Server returned invalid XML');
+
+  const root = doc.querySelector('WMS_Capabilities, WMT_MS_Capabilities');
+  if (!root) throw new Error('Response is not a WMS Capabilities document');
+
+  const version      = root.getAttribute('version') || '?';
+  const serviceTitle = doc.querySelector('Service > Title')?.textContent?.trim() || 'WMS Service';
+  const rootLayerEl  = doc.querySelector('Capability > Layer');
+
+  return {
+    version,
+    serviceTitle,
+    rootLayer: rootLayerEl ? parseLayerEl(rootLayerEl) : { name: null, title: 'Root', abstract: '', children: [] }
+  };
+}
+
+function parseLayerEl(el) {
+  const name     = el.querySelector(':scope > Name')?.textContent?.trim() || null;
+  const title    = el.querySelector(':scope > Title')?.textContent?.trim() || name || '(unnamed)';
+  const abstract = el.querySelector(':scope > Abstract')?.textContent?.trim() || '';
+  const children = [...el.querySelectorAll(':scope > Layer')].map(parseLayerEl);
+  return { name, title, abstract, children };
+}
+
+function countLeaves(node) {
+  if (!node) return 0;
+  if (node.children.length === 0) return node.name ? 1 : 0;
+  // Groups with a name are also selectable
+  const self = node.name ? 1 : 0;
+  return self + node.children.reduce((s, c) => s + countLeaves(c), 0);
+}
+
+// Build a DOM node for a layer tree entry
+function buildNode(node, depth) {
+  const indent = depth * 14;
+
+  if (node.children.length > 0) {
+    // ── Group ──
+    const wrap = document.createElement('div');
+    wrap.className = 'lb-group';
+
+    const hd = document.createElement('div');
+    hd.className = 'lb-group-hd open';
+    hd.style.paddingLeft = (18 + indent) + 'px';
+    hd.innerHTML = `
+      <svg class="chev" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+      <div class="lb-group-gtitle">${esc(node.title)}</div>
+      ${node.name ? `<div class="lb-group-gname">${esc(node.name)}</div>` : ''}
+      ${node.name ? `<button class="lb-group-sel" title="Select this group layer" onclick="selectLayer(event,${JSON.stringify(node.name)},${JSON.stringify(node.title)})"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button>` : ''}
+    `;
+
+    const children = document.createElement('div');
+    children.className = 'lb-children open';
+    node.children.forEach(c => children.appendChild(buildNode(c, depth + 1)));
+
+    // Toggle on click (but not on the select button)
+    hd.addEventListener('click', e => {
+      if (e.target.closest('.lb-group-sel')) return;
+      hd.classList.toggle('open');
+      children.classList.toggle('open');
+    });
+
+    wrap.appendChild(hd);
+    wrap.appendChild(children);
+    return wrap;
+
+  } else {
+    // ── Leaf ──
+    const leaf = document.createElement('div');
+    leaf.className = 'lb-leaf';
+    leaf.style.paddingLeft = (18 + indent) + 'px';
+    leaf.dataset.title = node.title.toLowerCase();
+    leaf.dataset.name  = (node.name || '').toLowerCase();
+    leaf.innerHTML = `
+      <div class="lb-leaf-title">${esc(node.title)}</div>
+      ${node.name ? `<div class="lb-leaf-name" title="${esc(node.name)}">${esc(node.name)}</div>` : ''}
+    `;
+
+    if (node.name) {
+      leaf.onclick = () => selectLayer(null, node.name, node.title);
+      _allLeaves.push({ el: leaf, title: node.title.toLowerCase(), name: node.name.toLowerCase() });
+    } else {
+      leaf.style.color = 'var(--txt2)';
+      leaf.style.cursor = 'default';
+    }
+
+    return leaf;
+  }
+}
+
+function selectLayer(e, name, title) {
+  if (e) e.stopPropagation();
+  document.getElementById('iName').value   = title;
+  document.getElementById('iLayers').value = name;
+  if (!document.getElementById('iUrl').value.trim()) {
+    document.getElementById('iUrl').value = _browserUrl;
+  }
+  // Open advanced panel so user sees the settings
+  document.getElementById('advPanel').classList.add('open');
+  document.getElementById('advTog').classList.add('open');
+  closeBrowser();
+  toast(`Selected: ${title}`);
+}
+
+function filterLayers(q) {
+  q = q.toLowerCase().trim();
+  if (!q) {
+    // Show everything, restore group children
+    document.querySelectorAll('#lbTree .lb-leaf').forEach(el => el.style.display = '');
+    document.querySelectorAll('#lbTree .lb-group').forEach(el => el.style.display = '');
+    document.querySelectorAll('#lbTree .lb-children').forEach(el => el.classList.add('open'));
+    document.querySelectorAll('#lbTree .lb-group-hd').forEach(el => el.classList.add('open'));
+    return;
+  }
+  // Filter leaves
+  document.querySelectorAll('#lbTree .lb-leaf').forEach(el => {
+    const match = (el.dataset.title || '').includes(q) || (el.dataset.name || '').includes(q);
+    el.style.display = match ? '' : 'none';
+  });
+  // Show/hide groups based on visible leaves; expand all matching groups
+  document.querySelectorAll('#lbTree .lb-group').forEach(g => {
+    const hasVisible = [...g.querySelectorAll('.lb-leaf')].some(l => l.style.display !== 'none');
+    g.style.display = hasVisible ? '' : 'none';
+    if (hasVisible) {
+      g.querySelector('.lb-children')?.classList.add('open');
+      g.querySelector('.lb-group-hd')?.classList.add('open');
+    }
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+renderPresets();
+</script>
+</body>
+</html>
